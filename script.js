@@ -44,6 +44,7 @@ const popupMargin = 20;
 const ipachartBoxSize = {w:50,h:30,x:90,y:10}
 const popupOkButtonSize = {w:80,h:30}
 const formantAdderBoxSize = {w:50,h:50,x:30,y:30}
+const formantAdderTypeButtonsSize = {w:70,h:30,x:30,y:230,spacing:10}
 const graphXButtonHeight = 30;
 const subdivisions = 2;
 const draggableTimeBoundaryWidth = 3;
@@ -459,12 +460,18 @@ function draw() {
 						popupOpen = false;
 						editorFormants[selectedFormant[0]].formants = [...formantsPopupNewValues];
 						selectedFormant = [-1, 0];
+						break popup;
 					}
 					for (var i = 0; i < numberOfFormants; i++) {
 						if (onRect(_xmouse, _ymouse, popupX + formantAdderBoxSize.x + formantAdderBoxSize.w*(i*2), popupY + formantAdderBoxSize.y, formantAdderBoxSize.w, formantAdderBoxSize.h)) {
 							if (formantsPopupNewValues[i] === null)
 								formantsPopupNewValues[i] = editorFormants[selectedFormant[0]].formants[i] === null?defaultFormantValues[i]:editorFormants[selectedFormant[0]].formants[i];
 							else formantsPopupNewValues[i] = null;
+						}
+					}
+					for (var i = 0; i < 2; i++) {
+						if (onRect(_xmouse, _ymouse, popupX + formantAdderTypeButtonsSize.x, popupY + formantAdderTypeButtonsSize.y + formantAdderTypeButtonsSize.h*i + formantAdderTypeButtonsSize.spacing*(i-1), formantAdderTypeButtonsSize.w, formantAdderTypeButtonsSize.h)) {
+							editorFormants[selectedFormant[0]].type = addDropdownOptions[i];
 						}
 					}
 					break;
@@ -518,6 +525,7 @@ function draw() {
 				canvasCtx.textBaseline = 'middle';
 				canvasCtx.fillText('OK', popupX + popupWidth - popupMargin - popupOkButtonSize.w/2, popupY + popupHeight - popupMargin - popupOkButtonSize.h/2);
 				
+				// Formant toggles
 				canvasCtx.fillStyle = '#000';
 				canvasCtx.font = '24pt '+fontFamily;
 				canvasCtx.textAlign = 'center';
@@ -525,7 +533,18 @@ function draw() {
 				for (var i = 0; i < numberOfFormants; i++) {
 					canvasCtx.strokeStyle = formantsPopupNewValues[i] === null?'red':'green';
 					canvasCtx.strokeRect(popupX + formantAdderBoxSize.x + formantAdderBoxSize.w*(i*2), popupY + formantAdderBoxSize.y, formantAdderBoxSize.w, formantAdderBoxSize.h);
-					canvasCtx.fillText('F'+(i+1), popupX + formantAdderBoxSize.x + formantAdderBoxSize.w*(i*2+0.5), popupY + formantAdderBoxSize.y + formantAdderBoxSize.h/2, formantAdderBoxSize.w, formantAdderBoxSize.h);
+					canvasCtx.fillText('F'+(i+1), popupX + formantAdderBoxSize.x + formantAdderBoxSize.w*(i*2+0.5), popupY + formantAdderBoxSize.y + formantAdderBoxSize.h/2);
+				}
+
+				// Type switcher buttons
+				canvasCtx.fillStyle = '#000';
+				canvasCtx.font = '18pt '+fontFamily;
+				canvasCtx.textAlign = 'center';
+				canvasCtx.textBaseline = 'middle';
+				for (var i = 0; i < 2; i++) {
+					canvasCtx.strokeStyle = editorFormants[selectedFormant[0]].type === addDropdownOptions[i]?'green':'red';
+					canvasCtx.strokeRect(popupX + formantAdderTypeButtonsSize.x, popupY + formantAdderTypeButtonsSize.y + formantAdderTypeButtonsSize.h*i + formantAdderTypeButtonsSize.spacing*(i-1), formantAdderTypeButtonsSize.w, formantAdderTypeButtonsSize.h);
+					canvasCtx.fillText(addDropdownOptions[i], popupX + formantAdderTypeButtonsSize.x + formantAdderTypeButtonsSize.w/2, popupY + formantAdderTypeButtonsSize.y + formantAdderTypeButtonsSize.h*(i+0.5) + formantAdderTypeButtonsSize.spacing*(i-1));
 				}
 				break;
 		}
