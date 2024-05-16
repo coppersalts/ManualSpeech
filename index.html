@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>ManualSpeech</title>
+	<script type="text/javascript" src="script.js"></script>
+	<style type="text/css">
+		body {
+			font-family: sans-serif;
+			margin: 5px 25px;
+		}
+		p {
+			line-height: 1.4;
+		}
+		code {
+			background: #f3f3f3;
+			border-radius: 3px;
+			padding: 2px;
+			border: 1px solid darkgrey;
+		}
+
+		/* I stole most of this from MDN */
+		details {
+			border: 1px solid #777;
+			border-radius: 4px;
+			padding: 0.5em 0.5em 0;
+		}
+		summary {
+			font-weight: bold;
+			margin: -0.5em -0.5em 0;
+			padding: 0.5em;
+		}
+		details[open] {
+			padding: 0.5em;
+		}
+		details[open] summary {
+			border-bottom: 1px solid #777;
+			margin-bottom: 0.5em;
+		}
+		details:not([open]) {
+			width: fit-content;
+		}
+		details summary:hover {
+			cursor: pointer;
+		}
+		h1 {
+			margin-bottom: 2px;
+		}
+		h1 + p {
+			margin-top: 0;
+		}
+
+		#main-canvas {
+			box-shadow: 0 0 15px #0005;
+			border-radius: 6px;
+			margin-bottom: 20px;
+			margin-left: 5px;
+		}
+	</style>
+</head>
+<body>
+	<h1>ManualSpeech</h1>
+	<p>v0.1.0 (<a href="changelog.html">changelog</a>)</p>
+	<canvas id=main-canvas width=640 height=400></canvas>
+	<details>
+		<summary>Controls</summary>
+		<p>These are some essential controls which may not be obvious to a first time user (in addition to some which may be obvious).</p>
+		<table>
+			<tbody>
+			<tr><td><code>-</code>, <code>=</code></td><td>&ndash; zoom horizontally<td></tr>
+			<tr><td><code>_</code>, <code>+</code></td><td>&ndash; zoom vertically (warning: kinda broken)<td></tr>
+			<tr><td><code>Space</code></td><td>&ndash; play/stop<td></tr>
+			</tbody>
+		</table>
+		<p>
+			Hold <code>Shift</code> while dragging a formant to drag the next formant along with it.<br>
+			Hold <code>Shift</code> while dragging a time boundary to have all subsequent boundaries move with it.<br>
+			Click a time boundary to open up a dropdown to add phones.<br>
+			Click on a consonant to change place of articulation and voicing.<br>
+			<br>
+			Unimportant note: the vocal chords are tuned to A 220 Hz, so you can listen to music in the background and half the time it'll sound nice with it.
+		</p>
+	</details>
+</body>
+</html>
