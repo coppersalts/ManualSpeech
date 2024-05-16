@@ -134,7 +134,7 @@ function draw() {
 		if (doubleClickTimer === -1) {
 			doubleClickTimer = performance.now();
 			selectedFormant = [-1, 0];
-		} else {
+		} else if (selectedFormant[0] !== -1) {
 			popupOpen = true;
 			popupType = 1;
 			formantsPopupNewValues = [...editorFormants[selectedFormant[0]].formants];
