@@ -6,6 +6,8 @@ let _ymouse = 0;
 let mouseIsDown = false;
 let pmouseIsDown = false;
 let lastClickX, lastClickY, valueAtClick;
+let doubleClickTimer = -1;
+const doubleClickThreshold = 300;
 let keysDown = {};
 const fontFamily = 'Helvetica';
 
@@ -38,7 +40,10 @@ const graphY = 100;
 const popupWidth = 600;
 const popupHeight = 360;
 let popupX, popupY; // Calculated on setup.
+const popupMargin = 20;
 const ipachartBoxSize = {w:50,h:30,x:90,y:10}
+const popupOkButtonSize = {w:80,h:30}
+const formantAdderBoxSize = {w:50,h:50,x:30,y:30}
 const graphXButtonHeight = 30;
 const subdivisions = 2;
 const draggableTimeBoundaryWidth = 3;
@@ -55,6 +60,7 @@ let addDropdownPosition = [0, 0];
 let popupOpen = false;
 let popupOpenLastFrame = false;
 let popupType = -1;
+let formantsPopupNewValues = [];
 
 const consonantFilterPresets = {
 	'bilabial': [[12000,10000,0.05],[5000,1000,0.1]],
@@ -64,6 +70,7 @@ const consonantFilterPresets = {
 	'postalveolar sibilant': [[11000,8000,0.04],[5500,5000,0.3],[3500,2500,0.25]],
 	'velar': [[12000,10000,0.1],[5100,5000,0.2],[2100,2000,0.2]],
 };
+const defaultFormantValues = [240, 2400, 2500, 2600, 2700, 2800];
 
 let debugFrame = false;
 let debugKeyPress = false;
@@ -122,8 +129,15 @@ function draw() {
 
 	// Process user input
 	if (!addDropdownOpen && !popupOpen && !mouseIsDown && pmouseIsDown) {
-		selectedFormant = [-1, 0];
 		selectedDraggableTimeBoundary = -1;
+		if (doubleClickTimer === -1) {
+			doubleClickTimer = performance.now();
+			selectedFormant = [-1, 0];
+		} else {
+			popupOpen = true;
+			popupType = 1;
+			formantsPopupNewValues = [...editorFormants[selectedFormant[0]].formants];
+		}
 	}
 	if (!addDropdownOpen && !popupOpen  && selectedFormant[0] !== -1) {
 		editorFormants[selectedFormant[0]].formants[selectedFormant[1]] = (valueAtClick[0] - minFreq) + mapRange(lastClickY-_ymouse, 0, graphHeight, minFreq, maxFreq);
@@ -187,10 +201,9 @@ function draw() {
 	// Play key
 	if (!stopPlayKeyPressed) {
 		if (keysDown[' ']) {
-			if (!playingPreview && !startPlayKeyPressed) {
+			if (!playingPreview && !startPlayKeyPressed && !popupOpen) {
 				startPlaying();
 				addDropdownOpen = false;
-				popupOpen = false;
 				startPlayKeyPressed = true;
 			}
 		} else startPlayKeyPressed = false;
@@ -427,16 +440,34 @@ function draw() {
 	canvasCtx.font = '10pt '+fontFamily;
 	canvasCtx.textAlign = 'left';
 	canvasCtx.textBaseline = 'bottom';
-	if (popupOpen) {
+	popup: if (popupOpen) {
 		if (popupOpenLastFrame && !mouseIsDown && pmouseIsDown) {
-			popupOpen = false;
-			for (var j = 0; j < consonantChart.length; j++) {
-				for (var i = 0; i < consonantChart[j].length; i++) {
-					if (onRect(_xmouse, _ymouse, popupX + ipachartBoxSize.x + ipachartBoxSize.w*(i-1), popupY + ipachartBoxSize.y + ipachartBoxSize.h*j, ipachartBoxSize.w, ipachartBoxSize.h) && consonantChart[j][i].length > 0) {
-						editorFormants[selectedConsonant].placeOfArticulation = consonantChart[0][i]+(j==2?' sibilant':'');
-						editorFormants[selectedConsonant].voiced = _xmouse > popupX + ipachartBoxSize.x + ipachartBoxSize.w*(i-0.5);
+			switch(popupType) {
+				case 0:
+					popupOpen = false;
+					for (var j = 0; j < consonantChart.length; j++) {
+						for (var i = 0; i < consonantChart[j].length; i++) {
+							if (onRect(_xmouse, _ymouse, popupX + ipachartBoxSize.x + ipachartBoxSize.w*(i-1), popupY + ipachartBoxSize.y + ipachartBoxSize.h*j, ipachartBoxSize.w, ipachartBoxSize.h) && consonantChart[j][i].length > 0) {
+								editorFormants[selectedConsonant].placeOfArticulation = consonantChart[0][i]+(j==2?' sibilant':'');
+								editorFormants[selectedConsonant].voiced = _xmouse > popupX + ipachartBoxSize.x + ipachartBoxSize.w*(i-0.5);
+							}
+						}
 					}
-				}
+					break popup;
+				case 1:
+					if (onRect(_xmouse, _ymouse, popupX + popupWidth - popupMargin - popupOkButtonSize.w, popupY + popupHeight - popupMargin - popupOkButtonSize.h, popupOkButtonSize.w, popupOkButtonSize.h)) {
+						popupOpen = false;
+						editorFormants[selectedFormant[0]].formants = [...formantsPopupNewValues];
+						selectedFormant = [-1, 0];
+					}
+					for (var i = 0; i < numberOfFormants; i++) {
+						if (onRect(_xmouse, _ymouse, popupX + formantAdderBoxSize.x + formantAdderBoxSize.w*(i*2), popupY + formantAdderBoxSize.y, formantAdderBoxSize.w, formantAdderBoxSize.h)) {
+							if (formantsPopupNewValues[i] === null)
+								formantsPopupNewValues[i] = editorFormants[selectedFormant[0]].formants[i] === null?defaultFormantValues[i]:editorFormants[selectedFormant[0]].formants[i];
+							else formantsPopupNewValues[i] = null;
+						}
+					}
+					break;
 			}
 		}
 		canvasCtx.fillStyle = '#000';
@@ -445,39 +476,65 @@ function draw() {
 		canvasCtx.fillStyle = '#fff';
 		canvasCtx.globalAlpha = 1;
 		canvasCtx.fillRect(popupX, popupY, popupWidth, popupHeight);
-		if (popupType === 0) {
-			canvasCtx.strokeStyle = '#000';
-			canvasCtx.fillStyle = '#000';
-			canvasCtx.lineWidth = 1;
-			canvasCtx.textBaseline = 'middle';
-			for (var j = 0; j < consonantChart.length; j++) {
-				for (var i = 0; i < consonantChart[j].length; i++) {
-					if (i == 0) {
-						canvasCtx.textAlign = 'right';
-						canvasCtx.font = '8pt '+fontFamily;
-						canvasCtx.fillText(consonantChart[j][i], popupX + ipachartBoxSize.x + ipachartBoxSize.w*i - 10, popupY + ipachartBoxSize.y + ipachartBoxSize.h*(j+0.5));
-					} else if (j == 0) {
-						canvasCtx.textAlign = 'center';
-						canvasCtx.font = '8pt '+fontFamily;
-						canvasCtx.fillText(consonantChart[j][i], popupX + ipachartBoxSize.x + ipachartBoxSize.w*(i-0.5), popupY + ipachartBoxSize.y + ipachartBoxSize.h*(j+0.5));
-					} else {
-						if (consonantChart[j][i].length > 0) {
+		switch(popupType) {
+			case 0:
+				canvasCtx.strokeStyle = '#000';
+				canvasCtx.fillStyle = '#000';
+				canvasCtx.lineWidth = 1;
+				canvasCtx.textBaseline = 'middle';
+				for (var j = 0; j < consonantChart.length; j++) {
+					for (var i = 0; i < consonantChart[j].length; i++) {
+						if (i == 0) {
+							canvasCtx.textAlign = 'right';
+							canvasCtx.font = '8pt '+fontFamily;
+							canvasCtx.fillText(consonantChart[j][i], popupX + ipachartBoxSize.x + ipachartBoxSize.w*i - 10, popupY + ipachartBoxSize.y + ipachartBoxSize.h*(j+0.5));
+						} else if (j == 0) {
 							canvasCtx.textAlign = 'center';
-							canvasCtx.font = '12pt '+fontFamily;
-							canvasCtx.fillText(consonantChart[j][i][0], popupX + ipachartBoxSize.x + ipachartBoxSize.w*(i-(2/3)), popupY + ipachartBoxSize.y + ipachartBoxSize.h*(j+0.5));
-							canvasCtx.fillText(consonantChart[j][i][1], popupX + ipachartBoxSize.x + ipachartBoxSize.w*(i-(1/3)), popupY + ipachartBoxSize.y + ipachartBoxSize.h*(j+0.5));
+							canvasCtx.font = '8pt '+fontFamily;
+							canvasCtx.fillText(consonantChart[j][i], popupX + ipachartBoxSize.x + ipachartBoxSize.w*(i-0.5), popupY + ipachartBoxSize.y + ipachartBoxSize.h*(j+0.5));
+						} else {
+							if (consonantChart[j][i].length > 0) {
+								canvasCtx.textAlign = 'center';
+								canvasCtx.font = '12pt '+fontFamily;
+								canvasCtx.fillText(consonantChart[j][i][0], popupX + ipachartBoxSize.x + ipachartBoxSize.w*(i-(2/3)), popupY + ipachartBoxSize.y + ipachartBoxSize.h*(j+0.5));
+								canvasCtx.fillText(consonantChart[j][i][1], popupX + ipachartBoxSize.x + ipachartBoxSize.w*(i-(1/3)), popupY + ipachartBoxSize.y + ipachartBoxSize.h*(j+0.5));
+							}
+							canvasCtx.strokeRect(popupX + ipachartBoxSize.x + ipachartBoxSize.w*(i-1), popupY + ipachartBoxSize.y + ipachartBoxSize.h*j, ipachartBoxSize.w, ipachartBoxSize.h);
 						}
-						canvasCtx.strokeRect(popupX + ipachartBoxSize.x + ipachartBoxSize.w*(i-1), popupY + ipachartBoxSize.y + ipachartBoxSize.h*j, ipachartBoxSize.w, ipachartBoxSize.h);
 					}
 				}
-			}
+				break;
+			case 1:
+				// OK button
+				canvasCtx.fillStyle = '#eee';
+				canvasCtx.strokeStyle = 'darkgrey';
+				canvasCtx.beginPath();
+				canvasCtx.rect(popupX + popupWidth - popupMargin - popupOkButtonSize.w, popupY + popupHeight - popupMargin - popupOkButtonSize.h, popupOkButtonSize.w, popupOkButtonSize.h);
+				canvasCtx.fill();
+				canvasCtx.stroke();
+				canvasCtx.fillStyle = '#000';
+				canvasCtx.font = '12pt '+fontFamily;
+				canvasCtx.textAlign = 'center';
+				canvasCtx.textBaseline = 'middle';
+				canvasCtx.fillText('OK', popupX + popupWidth - popupMargin - popupOkButtonSize.w/2, popupY + popupHeight - popupMargin - popupOkButtonSize.h/2);
+				
+				canvasCtx.fillStyle = '#000';
+				canvasCtx.font = '24pt '+fontFamily;
+				canvasCtx.textAlign = 'center';
+				canvasCtx.textBaseline = 'middle';
+				for (var i = 0; i < numberOfFormants; i++) {
+					canvasCtx.strokeStyle = formantsPopupNewValues[i] === null?'red':'green';
+					canvasCtx.strokeRect(popupX + formantAdderBoxSize.x + formantAdderBoxSize.w*(i*2), popupY + formantAdderBoxSize.y, formantAdderBoxSize.w, formantAdderBoxSize.h);
+					canvasCtx.fillText('F'+(i+1), popupX + formantAdderBoxSize.x + formantAdderBoxSize.w*(i*2+0.5), popupY + formantAdderBoxSize.y + formantAdderBoxSize.h/2, formantAdderBoxSize.w, formantAdderBoxSize.h);
+				}
+				break;
 		}
 	}
 
+	if (doubleClickTimer >= 0 && performance.now() - doubleClickTimer > doubleClickThreshold) doubleClickTimer = -1;
 	pmouseIsDown = mouseIsDown;
 	addDropdownOpenLastFrame = addDropdownOpen;
 	popupOpenLastFrame = popupOpen;
-
 	requestAnimationFrame(draw);
 }
 
