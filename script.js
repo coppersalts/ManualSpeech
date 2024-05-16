@@ -355,8 +355,13 @@ function draw() {
 		const x2 = mapRange(editorFormants[(i < editorFormants.length - 1)?i+1:i].time, minTime, maxTime, 0, graphWidth);
 		if (selectedFormant[0] === -1 && selectedDraggableTimeBoundary === -1 && !popupOpen && onRect(_xmouse-graphX, _ymouse-graphY, x1+draggableTimeBoundaryWidth*2, 0, x2-x1-draggableTimeBoundaryWidth*3, graphHeight + graphXButtonHeight) && selectedFormant[0] === -1) {
 			drawXIcon(x1+(x2-x1)/2, graphHeight + graphXButtonHeight - 20, 5, ()=>{
+				const timeToMoveBackBy = editorFormants[i+1].time - editorFormants[i].time;
+				for (var j = i+1; j < editorFormants.length; j++) {
+					editorFormants[j].time -= timeToMoveBackBy;
+				}
 				editorFormants.splice(i, 1);
 			}, ()=>{});
+			break;
 		}
 	}
 
