@@ -54,11 +54,14 @@ const draggableTimeBoundaryWidth = 3;
 const dropdownOptionHeight = 20;
 const addDropdownWidth = 60;
 const addDropdownOptions = ['hold','glide','gltl. stop','consnt.'];
+const A4 = 440;
+const noteNames = ['A',0,'A#',1,'Bb',1,'B',2,'Cb',2,'B#',3,'C',3,'C#',4,'Db',4,'D',5,'D#',6,'Eb',6,'E',7,'Fb',7,'E#',8,'F',8,'F#',9,'Gb',9,'G',10,'G#',11,'Ab',11];
 
 let selectedFormant = [-1, 0];
 let selectedDraggableTimeBoundary = -1;
 let selectedConsonant = -1;
 let selectedPitchEnvelopePoint = -1;
+let frequencyPopupText;
 let addDropdownOpen = false;
 let addDropdownOpenLastFrame = false; // I hate that I have to do this
 let addDropdownPosition = [0, 0];
@@ -144,6 +147,10 @@ function draw() {
 			popupOpen = true;
 			popupType = 1;
 			formantsPopupNewValues = [...editorFormants[selectedFormant[0]].formants];
+		} else if (selectedPitchEnvelopePoint !== -1) {
+			popupOpen = true;
+			popupType = 2;
+			frequencyPopupText = '';
 		}
 	}
 	if (!addDropdownOpen && !popupOpen  && selectedFormant[0] !== -1) {
@@ -372,7 +379,6 @@ function draw() {
 			canvasCtx.stroke();
 			if (mouseIsDown && !pmouseIsDown) {
 				selectedDraggableTimeBoundary = i;
-				// valueAtClick = editorFormants[i].time;
 				valueAtClick = editorFormants.filter((item, index) => index >= i).map((filteredItem) => filteredItem.time);
 			} else if (!mouseIsDown && pmouseIsDown && _xmouse == lastClickX &&  _ymouse == lastClickY && !addDropdownOpen && !popupOpen) {
 				selectedDraggableTimeBoundary = i;
@@ -616,6 +622,30 @@ function draw() {
 					canvasCtx.strokeStyle = editorFormants[selectedFormant[0]].type === addDropdownOptions[i]?'green':'red';
 					canvasCtx.strokeRect(popupX + formantAdderTypeButtonsSize.x, popupY + formantAdderTypeButtonsSize.y + formantAdderTypeButtonsSize.h*i + formantAdderTypeButtonsSize.spacing*(i-1), formantAdderTypeButtonsSize.w, formantAdderTypeButtonsSize.h);
 					canvasCtx.fillText(addDropdownOptions[i], popupX + formantAdderTypeButtonsSize.x + formantAdderTypeButtonsSize.w/2, popupY + formantAdderTypeButtonsSize.y + formantAdderTypeButtonsSize.h*(i+0.5) + formantAdderTypeButtonsSize.spacing*(i-1));
+				}
+				break;
+			case 2:
+				canvasCtx.fillStyle = '#000';
+				canvasCtx.font = '18pt '+fontFamily;
+				canvasCtx.textAlign = 'center';
+				canvasCtx.textBaseline = 'middle';
+				canvasCtx.fillText('Enter frequency in Hz or note name:', canvasWidth/2, canvasHeight/2 - 50);
+				canvasCtx.font = '50pt '+fontFamily;
+				canvasCtx.fillText(frequencyPopupText, canvasWidth/2, canvasHeight/2 + 20);
+				if (keysDown['Enter'] || keysDown['Return']) {
+					let freqToSet = parseFloat(frequencyPopupText);
+					if (isNaN(freqToSet) && frequencyPopupText.match(/^[A-Ga-g][#b]?\d+$/)) {
+						const noteNumber = noteNames[noteNames.indexOf(frequencyPopupText.replace(/[0-9]/g, ''))+1];
+						const octave = +frequencyPopupText.replace(/[^0-9]/g, '');
+						freqToSet = A4 * 2**((noteNumber+(octave-4)*12)/12);
+						console.log(noteNumber);
+					}
+					if (!isNaN(freqToSet)) {
+						pitchEnvelope[selectedPitchEnvelopePoint][0] = freqToSet;
+					}
+					popupOpen = false;
+					popupType = -1;
+					selectedPitchEnvelopePoint = -1;
 				}
 				break;
 		}
@@ -879,6 +909,10 @@ function mouseup(event) {
 
 function keydown(event) {
 	keysDown[event.key] = true;
+	if (popupOpen && popupType == 2) {
+		if (event.key.length == 1) frequencyPopupText += event.key;
+		else if (event.key === 'Backspace') frequencyPopupText = frequencyPopupText.slice(0, -1);
+	}
 }
 
 function keyup(event) {
