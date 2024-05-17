@@ -179,6 +179,13 @@ function draw() {
 			[pitchEnvelope[selectedPitchEnvelopePoint], pitchEnvelope[selectedPitchEnvelopePoint+1]] = [pitchEnvelope[selectedPitchEnvelopePoint+1], pitchEnvelope[selectedPitchEnvelopePoint]];
 			selectedPitchEnvelopePoint++;
 		}
+		if (valueAtClick[0] !== -1) {
+			if (keysDown['Shift']) {
+				pitchEnvelope[valueAtClick[1]][0] = pitchEnvelope[selectedPitchEnvelopePoint][0];
+			} else {
+				pitchEnvelope[valueAtClick[1]][0] = valueAtClick[0];
+			}
+		}
 		if (!mouseIsDown) selectedPitchEnvelopePoint = -1;
 	}
 	// Zoom keys
@@ -394,8 +401,10 @@ function draw() {
 					pitchEnvelope.splice(i, 1);
 					pointRemoved = true;
 					continue;
+				} else {
+					selectedPitchEnvelopePoint = i;
+					valueAtClick = [(i<pitchEnvelope.length-1)?pitchEnvelope[i+1][0]:-1, i+1];
 				}
-				else selectedPitchEnvelopePoint = i;
 			}
 			canvasCtx.beginPath();
 			canvasCtx.arc(mapRange(pitchEnvelope[i][1], minTime, maxTime, 0, graphWidth), mapRange(pitchEnvelope[i][0], minFreq, maxFreq, graphHeight, 0), 5, 0, Math.PI*2);
@@ -406,7 +415,7 @@ function draw() {
 			for (var i = 0; i < pitchEnvelope.length && pitchEnvelope[i][1] < newPoint[1]; i++);
 			pitchEnvelope.splice(i, 0, newPoint);
 			selectedPitchEnvelopePoint = i;
-			valueAtClick = i<pitchEnvelope.lenth-1?pitchEnvelope[i+1][0]:-1;
+			valueAtClick = [(i<pitchEnvelope.length-1)?pitchEnvelope[i+1][0]:-1, i+1];
 		}
 	}
 	canvasCtx.restore();
