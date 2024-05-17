@@ -61,7 +61,7 @@
 </head>
 <body>
 	<h1>ManualSpeech</h1>
-	<p>v0.1.1 (<a href="changelog.html">changelog</a>)</p>
+	<p>v0.2.0 (<a href="changelog.html">changelog</a>)</p>
 	<canvas id=main-canvas width=640 height=400></canvas>
 	<details>
 		<summary>Controls</summary>
@@ -71,6 +71,7 @@
 			<tr><td><code>-</code>, <code>=</code></td><td>&ndash; zoom horizontally<td></tr>
 			<tr><td><code>_</code>, <code>+</code></td><td>&ndash; zoom vertically (warning: kinda broken)<td></tr>
 			<tr><td><code>Space</code></td><td>&ndash; play/stop<td></tr>
+			<tr><td><code>d</code></td><td>&ndash; print whatever debug info I left in a console log<td></tr>
 			</tbody>
 		</table>
 		<p>
@@ -78,9 +79,12 @@
 			Hold <code>Shift</code> while dragging a time boundary to have all subsequent boundaries move with it.<br>
 			Click a time boundary to open up a dropdown to add phones.<br>
 			Click on a consonant to change place of articulation and voicing.<br>
-			Double click a formant to add or remove additional formants from the vowel.<br>
-			<br>
-			Unimportant note: the vocal chords are tuned to A 220 Hz, so you can listen to music in the background and half the time it'll sound nice with it.
+			Double click a formant to add or remove additional formants from the vowel.
+		</p><p>
+			In the pitch editor, click anywhere on the graph to add a new point.<br>
+			<code>Control</code> click a point to delete it.<br>
+			Double click a point to enter a pitch value.<br>
+			Hold shift while dragging a point to lock the next point vertically.
 		</p>
 	</details>
 </body>

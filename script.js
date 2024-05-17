@@ -23,7 +23,7 @@ const consonantFilters = [];
 const numberOfConsonantFilters = 6;
 const bandpassWidth = -10;
 const baseGain = 0.1;
-const voicedConsonantNoiseGainMultiplier = 0.7;
+const voicedConsonantNoiseGainMultiplier = 0.6;
 let playingPreview = false;
 let timeAtPlay;
 let playbackId = 0;
@@ -41,11 +41,14 @@ const popupWidth = 600;
 const popupHeight = 360;
 let popupX, popupY; // Calculated on setup.
 const popupMargin = 20;
-const ipachartBoxSize = {w:50,h:30,x:90,y:10}
-const popupOkButtonSize = {w:80,h:30}
-const formantAdderBoxSize = {w:50,h:50,x:30,y:30}
-const formantAdderTypeButtonsSize = {w:70,h:30,x:30,y:230,spacing:10}
-const graphXButtonHeight = 30;
+const ipachartBoxSize = {w:50,h:30,x:90,y:10};
+const popupOkButtonSize = {w:80,h:30};
+const formantAdderBoxSize = {w:50,h:50,x:30,y:30};
+const formantAdderTypeButtonsSize = {w:70,h:30,x:30,y:230,spacing:10};
+const bottomOptionsSize = {x:35, y:18, w:85};
+const bottomOptionsText = ['Formants', 'Pitch'];
+let selectedBottomOption = 0;
+const graphXButtonHeight = 20;
 const subdivisions = 2;
 const draggableTimeBoundaryWidth = 3;
 const dropdownOptionHeight = 20;
@@ -54,7 +57,8 @@ const addDropdownOptions = ['hold','glide','gltl. stop','consnt.'];
 
 let selectedFormant = [-1, 0];
 let selectedDraggableTimeBoundary = -1;
-let selectedConsonant;
+let selectedConsonant = -1;
+let selectedPitchEnvelopePoint = -1;
 let addDropdownOpen = false;
 let addDropdownOpenLastFrame = false; // I hate that I have to do this
 let addDropdownPosition = [0, 0];
@@ -97,6 +101,8 @@ let editorFormants = [{
 	formants: [null,null,null,null,null,null],
 	time: 0.15
 }];
+let pitchEnvelope = [[220, 0]];
+
 window.onload = function() {
 	// Canvas setup
 	canvas = document.getElementById('main-canvas');
@@ -163,6 +169,17 @@ function draw() {
 				editorFormants[i].time = valueAtClick[i-selectedDraggableTimeBoundary] + (editorFormants[selectedDraggableTimeBoundary].time - valueAtClick[0]);
 			}
 		}
+	}
+	if (!addDropdownOpen && !popupOpen && selectedPitchEnvelopePoint !== -1 ) {
+		pitchEnvelope[selectedPitchEnvelopePoint] = [mapRange(_ymouse-graphY, 0, graphHeight, maxFreq, minFreq), mapRange(_xmouse-graphX, 0, graphWidth, minTime, maxTime)];
+		if (selectedPitchEnvelopePoint > 0 && pitchEnvelope[selectedPitchEnvelopePoint-1][1] > pitchEnvelope[selectedPitchEnvelopePoint][1]) {
+			[pitchEnvelope[selectedPitchEnvelopePoint], pitchEnvelope[selectedPitchEnvelopePoint-1]] = [pitchEnvelope[selectedPitchEnvelopePoint-1], pitchEnvelope[selectedPitchEnvelopePoint]];
+			selectedPitchEnvelopePoint--;
+		} else if (selectedPitchEnvelopePoint < pitchEnvelope.length-1 && pitchEnvelope[selectedPitchEnvelopePoint+1][1] < pitchEnvelope[selectedPitchEnvelopePoint][1]) {
+			[pitchEnvelope[selectedPitchEnvelopePoint], pitchEnvelope[selectedPitchEnvelopePoint+1]] = [pitchEnvelope[selectedPitchEnvelopePoint+1], pitchEnvelope[selectedPitchEnvelopePoint]];
+			selectedPitchEnvelopePoint++;
+		}
+		if (!mouseIsDown) selectedPitchEnvelopePoint = -1;
 	}
 	// Zoom keys
 	if (!addDropdownOpen && !popupOpen  && (keysDown['='] || keysDown['-'] || keysDown['+'] || keysDown['_']) && onRect(_xmouse, _ymouse, 0, 0, canvasWidth, canvasHeight)) {
@@ -283,9 +300,9 @@ function draw() {
 	for (var i = 0; i < editorFormants.length; i++) {
 		const x1 = mapRange(editorFormants[i].time, minTime, maxTime, 0, graphWidth);
 		const x2 = mapRange(editorFormants[(i < editorFormants.length - 1)?i+1:i].time, minTime, maxTime, 0, graphWidth);
-		let mouseInHorizontalRange = onRect(_xmouse-graphX, _ymouse-graphY, x1+draggableTimeBoundaryWidth*2, 0, x2-x1-draggableTimeBoundaryWidth*3, graphHeight) && selectedFormant[0] === -1 && mouseInRange;
+		let mouseInHorizontalRange = onRect(_xmouse-graphX, _ymouse-graphY, x1+draggableTimeBoundaryWidth*2, 0, x2-x1-draggableTimeBoundaryWidth*3, graphHeight) && selectedFormant[0] === -1 && mouseInRange && selectedBottomOption === 0;
 		let drawDraggableTimeBoundary = false;
-		if (selectedDraggableTimeBoundary === -1 && !popupOpen && !draggableTimeBoundaryDrawn && onRect(_xmouse-graphX, _ymouse-graphY, x1-draggableTimeBoundaryWidth, 0, draggableTimeBoundaryWidth*draggableTimeBoundaryWidth, graphHeight) && selectedFormant[0] === -1 && mouseInRange) {
+		if (selectedDraggableTimeBoundary === -1 && !popupOpen && !draggableTimeBoundaryDrawn && selectedBottomOption === 0 && onRect(_xmouse-graphX, _ymouse-graphY, x1-draggableTimeBoundaryWidth, 0, draggableTimeBoundaryWidth*draggableTimeBoundaryWidth, graphHeight) && selectedFormant[0] === -1 && mouseInRange) {
 			drawDraggableTimeBoundary = true;
 			draggableTimeBoundaryDrawn = true;
 		}
@@ -357,18 +374,53 @@ function draw() {
 			}
 		}
 	}
+
+	// Draw pitch envelope
+	if (selectedBottomOption === 1) {
+		canvasCtx.lineCap = 'round';
+		canvasCtx.strokeStyle = 'magenta';
+		canvasCtx.lineWidth = 2;
+		canvasCtx.beginPath();
+		canvasCtx.moveTo(0, mapRange(pitchEnvelope[0][0], minFreq, maxFreq, graphHeight, 0));
+		for (var i = 0; i < pitchEnvelope.length; i++) {
+			canvasCtx.lineTo(mapRange(pitchEnvelope[i][1], minTime, maxTime, 0, graphWidth), mapRange(pitchEnvelope[i][0], minFreq, maxFreq, graphHeight, 0));
+		}
+		canvasCtx.lineTo(graphWidth, mapRange(pitchEnvelope[i-1][0], minFreq, maxFreq, graphHeight, 0));
+		canvasCtx.stroke();
+		let pointRemoved = false;
+		for (var i = pitchEnvelope.length - 1; i >= 0; i--) {
+			if (selectedPitchEnvelopePoint == -1 && pointToPointDistance(_xmouse-graphX, _ymouse-graphY, mapRange(pitchEnvelope[i][1], minTime, maxTime, 0, graphWidth), mapRange(pitchEnvelope[i][0], minFreq, maxFreq, graphHeight, 0)) < 5 && mouseIsDown && !pmouseIsDown) {
+				if (keysDown['Control']) {
+					pitchEnvelope.splice(i, 1);
+					pointRemoved = true;
+					continue;
+				}
+				else selectedPitchEnvelopePoint = i;
+			}
+			canvasCtx.beginPath();
+			canvasCtx.arc(mapRange(pitchEnvelope[i][1], minTime, maxTime, 0, graphWidth), mapRange(pitchEnvelope[i][0], minFreq, maxFreq, graphHeight, 0), 5, 0, Math.PI*2);
+			canvasCtx.stroke();
+		}
+		if (selectedPitchEnvelopePoint == -1 && mouseIsDown && !pmouseIsDown && !pointRemoved && onRect(_xmouse, _ymouse, graphX, graphY, graphWidth, graphHeight)) {
+			const newPoint = [mapRange(_ymouse-graphY, 0, graphHeight, maxFreq, minFreq), mapRange(_xmouse-graphX, 0, graphWidth, minTime, maxTime)];
+			for (var i = 0; i < pitchEnvelope.length && pitchEnvelope[i][1] < newPoint[1]; i++);
+			pitchEnvelope.splice(i, 0, newPoint);
+			selectedPitchEnvelopePoint = i;
+			valueAtClick = i<pitchEnvelope.lenth-1?pitchEnvelope[i+1][0]:-1;
+		}
+	}
 	canvasCtx.restore();
 
 	// Draw vowel delete buttons
-	// Repeating myself a bit here 1) to avoid the clip restored in the above line, and 2) because the horizontal range variable in the above loop only extends to the vertical height of the graph and no lower. And 3) because I think removing in the middle of the loop would probably break something.
+	// Repeating myself a bit here 1) to avoid the clip restored in the above line, and 2) because the horizontal range variable in the above loop only extends to the vertical height of the graph and no lower. And 3) because I think removing in the middle of the loop would probably break something and I don't feel like looping backwards.
 	canvasCtx.strokeStyle = 'red';
 	canvasCtx.lineCap = 'round';
 	canvasCtx.lineWidth = 2;
 	for (var i = 0; i < editorFormants.length; i++) {
 		const x1 = mapRange(editorFormants[i].time, minTime, maxTime, 0, graphWidth);
 		const x2 = mapRange(editorFormants[(i < editorFormants.length - 1)?i+1:i].time, minTime, maxTime, 0, graphWidth);
-		if (selectedFormant[0] === -1 && selectedDraggableTimeBoundary === -1 && !popupOpen && onRect(_xmouse-graphX, _ymouse-graphY, x1+draggableTimeBoundaryWidth*2, 0, x2-x1-draggableTimeBoundaryWidth*3, graphHeight + graphXButtonHeight) && selectedFormant[0] === -1) {
-			drawXIcon(x1+(x2-x1)/2, graphHeight + graphXButtonHeight - 20, 5, ()=>{
+		if (selectedFormant[0] === -1 && selectedDraggableTimeBoundary === -1 && !popupOpen && selectedBottomOption === 0 && onRect(_xmouse-graphX, _ymouse-graphY, x1+draggableTimeBoundaryWidth*2, 0, x2-x1-draggableTimeBoundaryWidth*3, graphHeight + graphXButtonHeight) && selectedFormant[0] === -1) {
+			drawXIcon(x1+(x2-x1)/2, graphHeight + graphXButtonHeight - 10, 5, ()=>{
 				const timeToMoveBackBy = editorFormants[i+1].time - editorFormants[i].time;
 				for (var j = i+1; j < editorFormants.length; j++) {
 					editorFormants[j].time -= timeToMoveBackBy;
@@ -392,6 +444,17 @@ function draw() {
 			canvasCtx.lineTo(playheadX, graphHeight);
 			canvasCtx.stroke();
 		}
+	}
+	canvasCtx.restore();
+
+	// Draw bottom options
+	canvasCtx.font = '10pt '+fontFamily;
+	canvasCtx.textBaseline = 'middle';
+	canvasCtx.textAlign = 'left';
+	for (var i = 0; i < bottomOptionsText.length; i++) {
+		drawRadioButton(bottomOptionsSize.x + bottomOptionsSize.w*i, canvasHeight - bottomOptionsSize.y, 6, selectedBottomOption===i, ()=>{if (!addDropdownOpen && !popupOpen) selectedBottomOption = i;});
+		canvasCtx.fillStyle = '#000';
+		canvasCtx.fillText(bottomOptionsText[i], bottomOptionsSize.x + bottomOptionsSize.w*i + 10, canvasHeight - bottomOptionsSize.y);
 	}
 
 	// Draw add dropdown
@@ -427,15 +490,14 @@ function draw() {
 		canvasCtx.fillStyle = '#eee';
 		canvasCtx.strokeStyle = 'darkgrey';
 		canvasCtx.beginPath();
-		canvasCtx.rect(addDropdownPosition[0]-graphX, addDropdownPosition[1]-graphY, addDropdownWidth, dropdownOptionHeight * addDropdownOptions.length);
+		canvasCtx.rect(addDropdownPosition[0], addDropdownPosition[1], addDropdownWidth, dropdownOptionHeight * addDropdownOptions.length);
 		canvasCtx.fill();
 		canvasCtx.stroke();
 		canvasCtx.fillStyle = 'black';
 		for (var i = 0; i < addDropdownOptions.length; i++) {
-			canvasCtx.fillText(addDropdownOptions[i], addDropdownPosition[0]-graphX + 3, addDropdownPosition[1]-graphY + dropdownOptionHeight*(i+1));
+			canvasCtx.fillText(addDropdownOptions[i], addDropdownPosition[0] + 3, addDropdownPosition[1] + dropdownOptionHeight*(i+1));
 		}
 	}
-	canvasCtx.restore();
 
 	// Draw popup
 	canvasCtx.font = '10pt '+fontFamily;
@@ -601,8 +663,11 @@ function reinitContext() {
 function createBaseSounds() {
 	// Voiced vowels
 	vowelBaseSound = audioCtx.createOscillator();
-	vowelBaseSound.type = "sawtooth";
-	vowelBaseSound.frequency.setValueAtTime(220, audioCtx.currentTime); // value in hertz
+	vowelBaseSound.type = 'sawtooth';
+	vowelBaseSound.frequency.setValueAtTime(pitchEnvelope[0][0], 0);
+	for (var i = 0; i < pitchEnvelope.length; i++) {
+		vowelBaseSound.frequency.linearRampToValueAtTime(pitchEnvelope[i][0], pitchEnvelope[i][1]<0?0:pitchEnvelope[i][1]);
+	}
 
 	// Unvoiced consonants
 	var bufferSize = 2 * audioCtx.sampleRate,
@@ -620,11 +685,11 @@ function initFilters() {
 	for (var i = 0; i < numberOfFormants; i++) {
 		// Create bandpass out of low and high pass.
 		let lowpass = audioCtx.createBiquadFilter();
-		lowpass.type = "lowpass";
+		lowpass.type = 'lowpass';
 		lowpass.frequency.setValueAtTime(1, 0);
 		lowpass.Q.setValueAtTime(10, 0);
 		let highpass = audioCtx.createBiquadFilter();
-		highpass.type = "highpass";
+		highpass.type = 'highpass';
 		highpass.frequency.setValueAtTime(1, 0);
 		highpass.Q.setValueAtTime(10, 0);
 		let gain = audioCtx.createGain();
@@ -640,11 +705,11 @@ function initFilters() {
 
 	for (var i = 0; i < numberOfConsonantFilters; i++) {
 		let lowpass = audioCtx.createBiquadFilter();
-		lowpass.type = "lowpass";
+		lowpass.type = 'lowpass';
 		lowpass.frequency.setValueAtTime(1, 0);
 		lowpass.Q.setValueAtTime(10, 0);
 		let highpass = audioCtx.createBiquadFilter();
-		highpass.type = "highpass";
+		highpass.type = 'highpass';
 		highpass.frequency.setValueAtTime(1, 0);
 		highpass.Q.setValueAtTime(10, 0);
 		let gain = audioCtx.createGain();
@@ -659,7 +724,7 @@ function initFilters() {
 	}
 
 	voicedConsonantBaseSoundFilter = audioCtx.createBiquadFilter();
-	voicedConsonantBaseSoundFilter.type = "lowpass";
+	voicedConsonantBaseSoundFilter.type = 'lowpass';
 	voicedConsonantBaseSoundFilter.frequency.setValueAtTime(500, 0);
 	voicedConsonantBaseSoundFilter.Q.setValueAtTime(1, 0);
 	voicedConsonantBaseSoundGain = audioCtx.createGain();
@@ -731,6 +796,25 @@ function drawXIcon(x, y, size, onClick, onHover) {
 	canvasCtx.stroke();
 }
 
+function drawRadioButton(x, y, size, enabled, onClick) {
+	if (onRect(_xmouse, _ymouse, x-size, y-size, size*2, size*2)) {
+		if (mouseIsDown && !pmouseIsDown) onClick();
+	}
+	if (enabled) {
+		canvasCtx.strokeStyle = 'dodgerblue';
+		canvasCtx.fillStyle = 'dodgerblue';
+		canvasCtx.beginPath();
+		canvasCtx.arc(x, y, size*0.67, 0, Math.PI*2);
+		canvasCtx.fill();
+	} else {
+		canvasCtx.strokeStyle = 'darkgrey';
+	}
+	canvasCtx.lineWidth = 1;
+	canvasCtx.beginPath();
+	canvasCtx.arc(x, y, size, 0, Math.PI*2);
+	canvasCtx.stroke();
+}
+
 
 
 // Idk how to categorize these functions.
@@ -759,6 +843,10 @@ function onRect(tx, ty, x, y, w, h) {
 // x0 and y0 are the point, the other two sets of coordinates are the points defining the line. 
 function pointToLineDistance(x1, y1, x2, y2, x0, y0) {
 	return Math.abs((x2-x1)*(y0-y1) - (x0-x1)*(y2-y1)) / Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+}
+
+function pointToPointDistance(x0, y0, x1, y1) {
+	return Math.sqrt(Math.abs(x0-x1)**2 + Math.abs(y0-y1)**2);
 }
 
 
