@@ -160,10 +160,7 @@ function draw() {
 	if (!addDropdownOpen && !popupOpen  && selectedFormant[0] !== -1) {
 		editorFormants[selectedFormant[0]].formants[selectedFormant[1]] = (valueAtClick[0] - minFreq) + mapRange(lastClickY-_ymouse, 0, graphHeight, minFreq, maxFreq);
 		if (keysDown['Shift'] && editorFormants[selectedFormant[0]+1].formants[selectedFormant[1]] !== null)
-			if (editorFormants[selectedFormant[0]+1].type == 'hold')
-				editorFormants[selectedFormant[0]+1].formants[selectedFormant[1]] = editorFormants[selectedFormant[0]].formants[selectedFormant[1]];
-			else
-				editorFormants[selectedFormant[0]+1].formants[selectedFormant[1]] = (valueAtClick[1] - minFreq) + mapRange(lastClickY-_ymouse, 0, graphHeight, minFreq, maxFreq);
+			editorFormants[selectedFormant[0]+1].formants[selectedFormant[1]] = editorFormants[selectedFormant[0]].formants[selectedFormant[1]];
 		else
 			editorFormants[selectedFormant[0]+1].formants[selectedFormant[1]] = valueAtClick[1];
 	}
