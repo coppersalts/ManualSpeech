@@ -45,6 +45,7 @@ const ipachartBoxSize = {w:50,h:30,x:90,y:10};
 const popupOkButtonSize = {w:80,h:30};
 const formantAdderBoxSize = {w:50,h:50,x:30,y:30};
 const formantAdderTypeButtonsSize = {w:70,h:30,x:30,y:230,spacing:10};
+const formantAdderSlidersSize = {h:70,y:20,knobRadius:6};
 const bottomOptionsSize = {x:35, y:18, w:85};
 const bottomOptionsText = ['Formants', 'Pitch'];
 let selectedBottomOption = 0;
@@ -98,10 +99,12 @@ const consonantChart = [
 let editorFormants = [{
 	type: 'hold',
 	formants: [240,2400,null,null,null,null],
+	formantGains: [1,1,0,0,0,0],
 	time: 0.0
 },{
 	type: 'hold',
 	formants: [null,null,null,null,null,null],
+	formantGains: [0,0,0,0,0,0],
 	time: 0.15
 }];
 let pitchEnvelope = [[220, 0]];
@@ -344,10 +347,12 @@ function draw() {
 				canvasCtx.strokeStyle = editorFormants[i].type=='hold'?'cyan':'green';
 				canvasCtx.lineCap = 'round';
 				canvasCtx.lineWidth = 2;
+				canvasCtx.globalAlpha = editorFormants[i].formantGains[j];
 				canvasCtx.beginPath();
 				canvasCtx.moveTo(x1, y1);
 				canvasCtx.lineTo(x2, y2);
 				canvasCtx.stroke();
+				canvasCtx.globalAlpha = 1;
 			}
 		}
 		// Draw consonants
@@ -474,7 +479,7 @@ function draw() {
 	}
 
 	// Draw formant dragging tooltip
-	if (selectedFormant[0] !== -1) {
+	if (selectedFormant[0] !== -1 && !popupOpen) {
 		canvasCtx.fillStyle = '#eee';
 		canvasCtx.strokeStyle = 'darkgrey';
 		canvasCtx.beginPath();
@@ -501,10 +506,12 @@ function draw() {
 					let newSound = {
 						type: (i==1?'glide':'hold'),
 						formants: i==2?[null,null,null,null,null,null]:[240,2400,null,null,null,null],
+						formantGains: i==2?[0,0,0,0,0,0]:[1,1,0,0,0,0],
 						time: editorFormants[selectedDraggableTimeBoundary].time};
 					if (i == 3) {
 						newSound.type = 'consonant';
 						newSound.formants = [null,null,null,null,null,null];
+						newSound.formantGains = [0,0,0,0,0,0];
 						newSound.placeOfArticulation = 'alveolar sibilant';
 						newSound.voiced = false;
 					}
@@ -549,21 +556,21 @@ function draw() {
 					}
 					break popup;
 				case 1:
-					if (onRect(_xmouse, _ymouse, popupX + popupWidth - popupMargin - popupOkButtonSize.w, popupY + popupHeight - popupMargin - popupOkButtonSize.h, popupOkButtonSize.w, popupOkButtonSize.h)) {
+					if (bothOnRect(_xmouse, _ymouse, lastClickX, lastClickY, popupX + popupWidth - popupMargin - popupOkButtonSize.w, popupY + popupHeight - popupMargin - popupOkButtonSize.h, popupOkButtonSize.w, popupOkButtonSize.h)) {
 						popupOpen = false;
 						editorFormants[selectedFormant[0]].formants = [...formantsPopupNewValues];
 						selectedFormant = [-1, 0];
 						break popup;
 					}
 					for (var i = 0; i < numberOfFormants; i++) {
-						if (onRect(_xmouse, _ymouse, popupX + formantAdderBoxSize.x + formantAdderBoxSize.w*(i*2), popupY + formantAdderBoxSize.y, formantAdderBoxSize.w, formantAdderBoxSize.h)) {
+						if (bothOnRect(_xmouse, _ymouse, lastClickX, lastClickY, popupX + formantAdderBoxSize.x + formantAdderBoxSize.w*(i*2), popupY + formantAdderBoxSize.y, formantAdderBoxSize.w, formantAdderBoxSize.h)) {
 							if (formantsPopupNewValues[i] === null)
 								formantsPopupNewValues[i] = editorFormants[selectedFormant[0]].formants[i] === null?defaultFormantValues[i]:editorFormants[selectedFormant[0]].formants[i];
 							else formantsPopupNewValues[i] = null;
 						}
 					}
 					for (var i = 0; i < 2; i++) {
-						if (onRect(_xmouse, _ymouse, popupX + formantAdderTypeButtonsSize.x, popupY + formantAdderTypeButtonsSize.y + formantAdderTypeButtonsSize.h*i + formantAdderTypeButtonsSize.spacing*(i-1), formantAdderTypeButtonsSize.w, formantAdderTypeButtonsSize.h)) {
+						if (bothOnRect(_xmouse, _ymouse, lastClickX, lastClickY, popupX + formantAdderTypeButtonsSize.x, popupY + formantAdderTypeButtonsSize.y + formantAdderTypeButtonsSize.h*i + formantAdderTypeButtonsSize.spacing*(i-1), formantAdderTypeButtonsSize.w, formantAdderTypeButtonsSize.h)) {
 							editorFormants[selectedFormant[0]].type = addDropdownOptions[i];
 						}
 					}
@@ -616,6 +623,7 @@ function draw() {
 				canvasCtx.font = '12pt '+fontFamily;
 				canvasCtx.textAlign = 'center';
 				canvasCtx.textBaseline = 'middle';
+				canvasCtx.lineWidth = 1;
 				canvasCtx.fillText('OK', popupX + popupWidth - popupMargin - popupOkButtonSize.w/2, popupY + popupHeight - popupMargin - popupOkButtonSize.h/2);
 				
 				// Formant toggles
@@ -629,11 +637,32 @@ function draw() {
 					canvasCtx.fillText('F'+(i+1), popupX + formantAdderBoxSize.x + formantAdderBoxSize.w*(i*2+0.5), popupY + formantAdderBoxSize.y + formantAdderBoxSize.h/2);
 				}
 
+				// Gain sliders
+				const slidersY = popupY + formantAdderBoxSize.y + formantAdderBoxSize.h + formantAdderSlidersSize.y;
+				canvasCtx.lineCap = 'round';
+				canvasCtx.lineWidth = 3;
+				canvasCtx.strokeStyle = 'grey';
+				canvasCtx.fillStyle = 'dodgerblue';
+				for (var i = 0; i < editorFormants[selectedFormant[0]].formantGains.length; i++) {
+					const thisSliderX = popupX + formantAdderBoxSize.x + formantAdderBoxSize.w*(i*2+0.5);
+					canvasCtx.beginPath();
+					canvasCtx.moveTo(thisSliderX, slidersY);
+					canvasCtx.lineTo(thisSliderX, slidersY + formantAdderSlidersSize.h);
+					canvasCtx.stroke();
+					if (mouseIsDown && pointToLineDistance(thisSliderX, slidersY, thisSliderX, slidersY + formantAdderSlidersSize.h, lastClickX, lastClickY) <= formantAdderSlidersSize.knobRadius && lastClickY >= slidersY && lastClickY <= slidersY + formantAdderSlidersSize.h) {
+						editorFormants[selectedFormant[0]].formantGains[i] = constrain(mapRange(_ymouse - slidersY, 0, formantAdderSlidersSize.h, 1, 0), 0, 1);
+					}
+					canvasCtx.beginPath();
+					canvasCtx.arc(thisSliderX, mapRange(editorFormants[selectedFormant[0]].formantGains[i], 1, 0, 0, formantAdderSlidersSize.h) + slidersY, formantAdderSlidersSize.knobRadius, 0, Math.PI * 2);
+					canvasCtx.fill();
+				}
+
 				// Type switcher buttons
 				canvasCtx.fillStyle = '#000';
 				canvasCtx.font = '18pt '+fontFamily;
 				canvasCtx.textAlign = 'center';
 				canvasCtx.textBaseline = 'middle';
+				canvasCtx.lineWidth = 1;
 				for (var i = 0; i < 2; i++) {
 					canvasCtx.strokeStyle = editorFormants[selectedFormant[0]].type === addDropdownOptions[i]?'green':'red';
 					canvasCtx.strokeRect(popupX + formantAdderTypeButtonsSize.x, popupY + formantAdderTypeButtonsSize.y + formantAdderTypeButtonsSize.h*i + formantAdderTypeButtonsSize.spacing*(i-1), formantAdderTypeButtonsSize.w, formantAdderTypeButtonsSize.h);
@@ -816,11 +845,11 @@ function setFormantFrequenciesAtTime(data) {
 			if (data.type=='glide') {
 				formantFilters[i][0].frequency.linearRampToValueAtTime(data.formants[i] + bandpassWidth, data.time);
 				formantFilters[i][1].frequency.linearRampToValueAtTime(data.formants[i] - bandpassWidth, data.time);
-				formantFilters[i][2].gain.linearRampToValueAtTime(1, data.time);
+				formantFilters[i][2].gain.linearRampToValueAtTime(data.formantGains[i], data.time);
 			} else {
 				formantFilters[i][0].frequency.setValueAtTime(data.formants[i] + bandpassWidth, data.time);
 				formantFilters[i][1].frequency.setValueAtTime(data.formants[i] - bandpassWidth, data.time);
-				formantFilters[i][2].gain.setValueAtTime(1, data.time);
+				formantFilters[i][2].gain.setValueAtTime(data.formantGains[i], data.time);
 			}
 		}
 	}
@@ -895,6 +924,10 @@ function constrain(value, min, max) {
 
 function onRect(tx, ty, x, y, w, h) {
 	return tx > x && tx < x + w && ty > y && ty < y + h;
+}
+
+function bothOnRect(tx1, ty1, tx2, ty2, x, y, w, h) {
+	return onRect(tx1, ty1, x, y, w, h) && onRect(tx2, ty2, x, y, w, h);
 }
 
 // x0 and y0 are the point, the other two sets of coordinates are the points defining the line. 
