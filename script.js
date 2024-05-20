@@ -15,7 +15,7 @@ let zoomKeyPressed = false;
 let startPlayKeyPressed = false;
 let stopPlayKeyPressed = false;
 
-let audioCtx, masterGain, vowelBaseSound, consonantsBaseSound, voicedConsonantBaseSoundGain, voicedConsonantBaseSoundFilter;
+let audioCtx, masterGain, vowelBaseSound, consonantsBaseSound, voicedConsonantBaseSoundGain, voicedConsonantBaseSoundFilter, customBaseSound, customBaseSoundFile;
 
 const formantFilters = [];
 const numberOfFormants = 6;
@@ -23,7 +23,7 @@ const consonantFilters = [];
 const numberOfConsonantFilters = 6;
 const bandpassWidth = -10;
 const baseGain = 0.1;
-const voicedConsonantNoiseGainMultiplier = 0.6;
+const voicedConsonantNoiseGainMultiplier = 0.4;
 let playingPreview = false;
 let timeAtPlay;
 let playbackId = 0;
@@ -127,6 +127,7 @@ window.onload = function() {
 	window.addEventListener('pointerup', mouseup);
 	window.addEventListener('keydown', keydown);
 	window.addEventListener('keyup', keyup);
+	document.getElementById('upload').addEventListener('change', handleFiles, false);
 
 	requestAnimationFrame(draw);
 }
@@ -472,6 +473,21 @@ function draw() {
 		canvasCtx.fillText(bottomOptionsText[i], bottomOptionsSize.x + bottomOptionsSize.w*i + 10, canvasHeight - bottomOptionsSize.y);
 	}
 
+	// Draw formant dragging tooltip
+	if (selectedFormant[0] !== -1) {
+		canvasCtx.fillStyle = '#eee';
+		canvasCtx.strokeStyle = 'darkgrey';
+		canvasCtx.beginPath();
+		canvasCtx.rect(lastClickX, _ymouse, 52, 18);
+		canvasCtx.stroke();
+		canvasCtx.fill();
+		canvasCtx.fillStyle = '#000';
+		canvasCtx.font = '12pt '+fontFamily;
+		canvasCtx.textAlign = 'center';
+		canvasCtx.textBaseline = 'bottom';
+		canvasCtx.fillText(+editorFormants[selectedFormant[0]].formants[selectedFormant[1]].toFixed(1), lastClickX + 26, _ymouse + 18);
+	}
+
 	// Draw add dropdown
 	canvasCtx.font = '10pt '+fontFamily;
 	canvasCtx.textAlign = 'left';
@@ -676,8 +692,9 @@ function startPlaying() {
 	initFilters();
 	setAllFormants();
 	audioCtx.currentTime = 0; 
-	vowelBaseSound.start();
-	consonantBaseSound.start();
+	if (customBaseSound) customBaseSoundFile.play();
+	else vowelBaseSound.start();
+	if (!customBaseSound) consonantBaseSound.start();
 	playingPreview = true;
 	playbackId++;
 	let thisPlaybackId = playbackId;
@@ -687,8 +704,9 @@ function startPlaying() {
 
 function stopPlaying(pid) {
 	if (playbackId !== pid) return;
-	vowelBaseSound.stop();
-	consonantBaseSound.stop();
+	if (customBaseSound) customBaseSoundFile.pause();
+	else vowelBaseSound.stop();
+	if (!customBaseSound) consonantBaseSound.stop();
 	playingPreview = false;
 }
 
@@ -701,23 +719,32 @@ function reinitContext() {
 
 function createBaseSounds() {
 	// Voiced vowels
-	vowelBaseSound = audioCtx.createOscillator();
-	vowelBaseSound.type = 'sawtooth';
-	vowelBaseSound.frequency.setValueAtTime(pitchEnvelope[0][0], 0);
-	for (var i = 0; i < pitchEnvelope.length; i++) {
-		vowelBaseSound.frequency.linearRampToValueAtTime(pitchEnvelope[i][0], pitchEnvelope[i][1]<0?0:pitchEnvelope[i][1]);
+	if (customBaseSound) {
+		customBaseSoundFile = new Audio(URL.createObjectURL(customBaseSound));
+		vowelBaseSound = audioCtx.createMediaElementSource(customBaseSoundFile);
+	} else {
+		vowelBaseSound = audioCtx.createOscillator();
+		vowelBaseSound.type = 'sawtooth';
+		vowelBaseSound.frequency.setValueAtTime(pitchEnvelope[0][0], 0);
+		for (var i = 0; i < pitchEnvelope.length; i++) {
+			vowelBaseSound.frequency.linearRampToValueAtTime(pitchEnvelope[i][0], pitchEnvelope[i][1]<0?0:pitchEnvelope[i][1]);
+		}
 	}
 
-	// Unvoiced consonants
-	var bufferSize = 2 * audioCtx.sampleRate,
-		noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate),
-		output = noiseBuffer.getChannelData(0);
-	for (var i = 0; i < bufferSize; i++) {
-		output[i] = Math.random() * 2 - 1;
+	if (customBaseSound) {
+		consonantBaseSound = audioCtx.createMediaElementSource(customBaseSoundFile);
+	} else {
+		// Unvoiced consonants
+		var bufferSize = 2 * audioCtx.sampleRate,
+			noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate),
+			output = noiseBuffer.getChannelData(0);
+		for (var i = 0; i < bufferSize; i++) {
+			output[i] = Math.random() * 2 - 1;
+		}
+		consonantBaseSound = audioCtx.createBufferSource();
+		consonantBaseSound.buffer = noiseBuffer;
+		consonantBaseSound.loop = true;
 	}
-	consonantBaseSound = audioCtx.createBufferSource();
-	consonantBaseSound.buffer = noiseBuffer;
-	consonantBaseSound.loop = true;
 }
 
 function initFilters() {
@@ -791,8 +818,8 @@ function setFormantFrequenciesAtTime(data) {
 				formantFilters[i][1].frequency.linearRampToValueAtTime(data.formants[i] - bandpassWidth, data.time);
 				formantFilters[i][2].gain.linearRampToValueAtTime(1, data.time);
 			} else {
-				formantFilters[i][0].frequency.setValueAtTime(data.formants[i], data.time);
-				formantFilters[i][1].frequency.setValueAtTime(data.formants[i], data.time);
+				formantFilters[i][0].frequency.setValueAtTime(data.formants[i] + bandpassWidth, data.time);
+				formantFilters[i][1].frequency.setValueAtTime(data.formants[i] - bandpassWidth, data.time);
 				formantFilters[i][2].gain.setValueAtTime(1, data.time);
 			}
 		}
@@ -856,15 +883,6 @@ function drawRadioButton(x, y, size, enabled, onClick) {
 
 
 
-// Idk how to categorize these functions.
-
-// function closePopup() {
-// 	popupOpen = false;
-// 	popupType = -1;
-// }
-
-
-
 // Utility functions
 
 function mapRange(value, inMin, inMax, outMin, outMax) {
@@ -917,4 +935,10 @@ function keydown(event) {
 
 function keyup(event) {
 	keysDown[event.key] = false;
+}
+
+function handleFiles(event) {
+    var files = event.target.files;
+    console.log(files[0]);
+    customBaseSound = files[0];
 }
