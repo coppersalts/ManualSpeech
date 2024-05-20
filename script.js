@@ -911,8 +911,8 @@ function pointToPointDistance(x0, y0, x1, y1) {
 // Event handlers
 
 function mousemove(event) {
-	_xmouse = event.pageX - canvas.getBoundingClientRect().left;
-	_ymouse = event.pageY - canvas.getBoundingClientRect().top;
+	_xmouse = event.pageX - canvas.getBoundingClientRect().left - window.scrollX;
+	_ymouse = event.pageY - canvas.getBoundingClientRect().top - window.scrollY;
 }
 
 function mousedown(event) {
@@ -930,6 +930,11 @@ function keydown(event) {
 	if (popupOpen && popupType == 2) {
 		if (event.key.length == 1) frequencyPopupText += event.key;
 		else if (event.key === 'Backspace') frequencyPopupText = frequencyPopupText.slice(0, -1);
+	}
+
+	// Prevent space bar from scrolling the page.
+	if (event.keyCode == 32 && event.target == document.body) {
+		event.preventDefault();
 	}
 }
 
