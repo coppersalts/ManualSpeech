@@ -181,11 +181,9 @@ function draw() {
 	if (!addDropdownOpen && !popupOpen && selectedPitchEnvelopePoint !== -1 ) {
 		pitchEnvelope[selectedPitchEnvelopePoint] = [mapRange(_ymouse-graphY, 0, graphHeight, maxFreq, minFreq), mapRange(_xmouse-graphX, 0, graphWidth, minTime, maxTime)];
 		if (selectedPitchEnvelopePoint > 0 && pitchEnvelope[selectedPitchEnvelopePoint-1][1] > pitchEnvelope[selectedPitchEnvelopePoint][1]) {
-			[pitchEnvelope[selectedPitchEnvelopePoint], pitchEnvelope[selectedPitchEnvelopePoint-1]] = [pitchEnvelope[selectedPitchEnvelopePoint-1], pitchEnvelope[selectedPitchEnvelopePoint]];
-			selectedPitchEnvelopePoint--;
+			pitchEnvelope[selectedPitchEnvelopePoint][1] = pitchEnvelope[selectedPitchEnvelopePoint-1][1];
 		} else if (selectedPitchEnvelopePoint < pitchEnvelope.length-1 && pitchEnvelope[selectedPitchEnvelopePoint+1][1] < pitchEnvelope[selectedPitchEnvelopePoint][1]) {
-			[pitchEnvelope[selectedPitchEnvelopePoint], pitchEnvelope[selectedPitchEnvelopePoint+1]] = [pitchEnvelope[selectedPitchEnvelopePoint+1], pitchEnvelope[selectedPitchEnvelopePoint]];
-			selectedPitchEnvelopePoint++;
+			pitchEnvelope[selectedPitchEnvelopePoint][1] = pitchEnvelope[selectedPitchEnvelopePoint+1][1];
 		}
 		if (valueAtClick[0] !== -1) {
 			if (keysDown['Shift']) {
