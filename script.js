@@ -48,6 +48,7 @@ const formantAdderTypeButtonsSize = {w:70,h:30,x:30,y:230,spacing:10};
 const formantAdderSlidersSize = {h:70,y:20,knobRadius:6};
 const bottomOptionsSize = {x:35, y:18, w:85};
 const bottomOptionsText = ['Formants', 'Pitch'];
+const optionsMenuSize = {x:35,y:40,vspacing:25,hspacing:150};
 let selectedBottomOption = 0;
 const graphXButtonHeight = 20;
 const subdivisions = 2;
@@ -58,6 +59,8 @@ const addDropdownOptions = ['hold','glide','gltl. stop','consnt.'];
 const A4 = 440;
 const noteNames = ['A',0,'A#',1,'Bb',1,'B',2,'Cb',2,'B#',3,'C',3,'C#',4,'Db',4,'D',5,'D#',6,'Eb',6,'E',7,'Fb',7,'E#',8,'F',8,'F#',9,'Gb',9,'G',10,'G#',11,'Ab',11];
 
+let glottisSoundType = 0;
+const glottisSoundTypeNames = ['Sawtooth', 'Liljencrants–Fant', 'File Upload (no pitch)'];
 let glottisTenseness = 0.6;
 
 let selectedFormant = [-1, 0];
@@ -474,6 +477,13 @@ function draw() {
 		canvasCtx.fillStyle = '#000';
 		canvasCtx.fillText(bottomOptionsText[i], bottomOptionsSize.x + bottomOptionsSize.w*i + 10, canvasHeight - bottomOptionsSize.y);
 	}
+	canvasCtx.textAlign = 'right';
+	canvasCtx.fillText('Options', canvasWidth - 15, canvasHeight - bottomOptionsSize.y);
+	if (!popupOpen && !addDropdownOpen && onRect(_xmouse, _ymouse, canvasWidth - 15 - 50, canvasHeight - bottomOptionsSize.y - 7, 50, 14) && pmouseIsDown && !mouseIsDown) {
+		popupOpen = true;
+		popupType = 3;
+		if (playingPreview) stopPlaying(playbackId);
+	}
 
 	// Draw formant dragging tooltip
 	if (selectedFormant[0] !== -1 && !popupOpen) {
@@ -572,6 +582,11 @@ function draw() {
 						}
 					}
 					break;
+				case 3:
+					if (bothOnRect(_xmouse, _ymouse, lastClickX, lastClickY, popupX + popupWidth - popupMargin - popupOkButtonSize.w, popupY + popupHeight - popupMargin - popupOkButtonSize.h, popupOkButtonSize.w, popupOkButtonSize.h)) {
+						popupOpen = false;
+						break popup;
+					}
 			}
 		}
 		canvasCtx.fillStyle = '#000';
@@ -690,6 +705,56 @@ function draw() {
 					selectedPitchEnvelopePoint = -1;
 				}
 				break;
+			case 3:
+				// OK button
+				canvasCtx.fillStyle = '#eee';
+				canvasCtx.strokeStyle = 'darkgrey';
+				canvasCtx.beginPath();
+				canvasCtx.rect(popupX + popupWidth - popupMargin - popupOkButtonSize.w, popupY + popupHeight - popupMargin - popupOkButtonSize.h, popupOkButtonSize.w, popupOkButtonSize.h);
+				canvasCtx.fill();
+				canvasCtx.stroke();
+				canvasCtx.fillStyle = '#000';
+				canvasCtx.font = '12pt '+fontFamily;
+				canvasCtx.textAlign = 'center';
+				canvasCtx.textBaseline = 'middle';
+				canvasCtx.lineWidth = 1;
+				canvasCtx.fillText('OK', popupX + popupWidth - popupMargin - popupOkButtonSize.w/2, popupY + popupHeight - popupMargin - popupOkButtonSize.h/2);
+
+				canvasCtx.textBaseline = 'middle';
+				canvasCtx.textAlign = 'left';
+				canvasCtx.font = '10pt '+fontFamily;
+				for (var i = 0; i < glottisSoundTypeNames.length; i++) {
+					drawRadioButton(optionsMenuSize.x, optionsMenuSize.y + optionsMenuSize.vspacing*(i+1), 6, glottisSoundType===i, ()=>{
+						glottisSoundType = i;
+						document.getElementById('upload').setAttribute('style', glottisSoundType==2?'':'display:none');
+					});
+					canvasCtx.fillStyle = '#000';
+					canvasCtx.fillText(glottisSoundTypeNames[i], optionsMenuSize.x + 10, optionsMenuSize.y + optionsMenuSize.vspacing*(i+1));
+				}
+				canvasCtx.font = 'bold 14pt '+fontFamily;
+				canvasCtx.fillStyle = '#000';
+				canvasCtx.fillText('Glottis Sound', optionsMenuSize.x, optionsMenuSize.y);
+				if (glottisSoundType == 1) {
+					canvasCtx.fillText('Tenseness', optionsMenuSize.x + optionsMenuSize.hspacing, optionsMenuSize.y);
+
+					const thisSliderX = optionsMenuSize.x + optionsMenuSize.hspacing + 50;
+					const slidersY = optionsMenuSize.y + optionsMenuSize.vspacing;
+				canvasCtx.lineCap = 'round';
+				canvasCtx.lineWidth = 3;
+				canvasCtx.strokeStyle = 'grey';
+				canvasCtx.fillStyle = 'dodgerblue';
+					canvasCtx.beginPath();
+					canvasCtx.moveTo(thisSliderX, slidersY);
+					canvasCtx.lineTo(thisSliderX, slidersY + formantAdderSlidersSize.h);
+					canvasCtx.stroke();
+					if (mouseIsDown && pointToLineDistance(thisSliderX, slidersY, thisSliderX, slidersY + formantAdderSlidersSize.h, lastClickX, lastClickY) <= formantAdderSlidersSize.knobRadius && lastClickY >= slidersY && lastClickY <= slidersY + formantAdderSlidersSize.h) {
+						glottisTenseness = constrain(mapRange(_ymouse - slidersY, 0, formantAdderSlidersSize.h, 1, 0), 0, 1);
+					}
+					canvasCtx.beginPath();
+					canvasCtx.arc(thisSliderX, mapRange(glottisTenseness, 1, 0, 0, formantAdderSlidersSize.h) + slidersY, formantAdderSlidersSize.knobRadius, 0, Math.PI * 2);
+					canvasCtx.fill();
+				}
+				break;
 		}
 	}
 
@@ -718,9 +783,9 @@ function startPlaying() {
 	initFilters();
 	setAllFormants();
 	audioCtx.currentTime = 0; 
-	if (customBaseSound) customBaseSoundFile.play();
+	if (customBaseSound && glottisSoundType == 2) customBaseSoundFile.play();
 	else vowelBaseSound.start();
-	if (!customBaseSound) consonantBaseSound.start();
+	if (!(customBaseSound && glottisSoundType == 2)) consonantBaseSound.start();
 	playingPreview = true;
 	playbackId++;
 	let thisPlaybackId = playbackId;
@@ -730,9 +795,9 @@ function startPlaying() {
 
 function stopPlaying(pid) {
 	if (playbackId !== pid) return;
-	if (customBaseSound) customBaseSoundFile.pause();
+	if (customBaseSound && glottisSoundType == 2) customBaseSoundFile.pause();
 	else vowelBaseSound.stop();
-	if (!customBaseSound) consonantBaseSound.stop();
+	if (!(customBaseSound && glottisSoundType == 2)) consonantBaseSound.stop();
 	playingPreview = false;
 }
 
@@ -745,22 +810,27 @@ function reinitContext() {
 
 function createBaseSounds() {
 	// Voiced vowels
-	if (customBaseSound) {
+	if (customBaseSound && glottisSoundType == 2) {
 		customBaseSoundFile = new Audio(URL.createObjectURL(customBaseSound));
 		vowelBaseSound = audioCtx.createMediaElementSource(customBaseSoundFile);
 	} else {
 		vowelBaseSound = audioCtx.createOscillator();
-		// vowelBaseSound.type = 'sawtooth';
-		const frequencies = discreteFourierTransform(createLFWaveform(glottisTenseness, 500));
-		const customOscillator = audioCtx.createPeriodicWave(frequencies.map((e) => e.re), frequencies.map((e) => e.im));
-		vowelBaseSound.setPeriodicWave(customOscillator);
+		if (glottisSoundType == 0) {
+			vowelBaseSound.type = 'sawtooth';
+		} else if (glottisSoundType == 1) {
+			const frequencies = discreteFourierTransform(createLFWaveform(glottisTenseness, 500));
+			const customOscillator = audioCtx.createPeriodicWave(frequencies.map((e) => e.re), frequencies.map((e) => e.im));
+			vowelBaseSound.setPeriodicWave(customOscillator);
+		} else {
+			vowelBaseSound.type = 'sine';
+		}
 		vowelBaseSound.frequency.setValueAtTime(pitchEnvelope[0][0], 0);
 		for (var i = 0; i < pitchEnvelope.length; i++) {
 			vowelBaseSound.frequency.linearRampToValueAtTime(pitchEnvelope[i][0], pitchEnvelope[i][1]<0?0:pitchEnvelope[i][1]);
 		}
 	}
 
-	if (customBaseSound) {
+	if (customBaseSound && glottisSoundType == 2) {
 		consonantBaseSound = audioCtx.createMediaElementSource(customBaseSoundFile);
 	} else {
 		// Unvoiced consonants
@@ -774,9 +844,6 @@ function createBaseSounds() {
 		consonantBaseSound.buffer = noiseBuffer;
 		consonantBaseSound.loop = true;
 	}
-
-	// console.log(discreteFourierTransform(createLFWaveform(1, 500)));
-	// console.log(createLFWaveform(1, 500));
 }
 
 function initFilters() {
@@ -920,8 +987,8 @@ function createLFWaveform(tenseness, samples) {
 	return output;
 }
 
-const CLOSE_TO_ZERO_THRESHOLD = 1e-10;
 //https://stackoverflow.com/questions/44343806/discrete-fourier-transforms-in-javascript
+const CLOSE_TO_ZERO_THRESHOLD = 1e-10;
 function discreteFourierTransform(inputAmplitudes, zeroThreshold = CLOSE_TO_ZERO_THRESHOLD) {
 	const N = inputAmplitudes.length;
 	const signals = [];

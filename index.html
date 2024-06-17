@@ -65,13 +65,17 @@
 			content: '\2013';
 			margin-right: 5px;
 		}
+		#upload {
+			display: block;
+			margin-bottom: 20px;
+		}
 	</style>
 </head>
 <body>
 	<h1>ManualSpeech</h1>
 	<p>v0.3.0 (<a href="changelog.html">changelog</a>)</p>
 	<canvas id=main-canvas width=640 height=400></canvas>
-	<input style="display: none;" type="file" id="upload" title="Upload File" />
+	<input style="display: none;" type="file"  accept="audio/*,video/*"id="upload"title="Upload File" />
 	<details>
 		<summary>Controls</summary>
 		<p>These are some essential controls which may not be obvious to a first time user (in addition to some which may be obvious).</p>
