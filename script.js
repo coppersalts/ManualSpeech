@@ -59,9 +59,9 @@ const addDropdownOptions = ['hold','glide','gltl. stop','consnt.'];
 const A4 = 440;
 const noteNames = ['A',0,'A#',1,'Bb',1,'B',2,'Cb',2,'B#',3,'C',3,'C#',4,'Db',4,'D',5,'D#',6,'Eb',6,'E',7,'Fb',7,'E#',8,'F',8,'F#',9,'Gb',9,'G',10,'G#',11,'Ab',11];
 
-let glottisSoundType = 0;
+let glottisSoundType = 1;
 const glottisSoundTypeNames = ['Sawtooth', 'Liljencrants–Fant', 'File Upload (no pitch)'];
-let glottisTenseness = 0.6;
+let glottisTenseness = 0.4;
 
 let selectedFormant = [-1, 0];
 let selectedDraggableTimeBoundary = -1;
