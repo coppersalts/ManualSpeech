@@ -15,7 +15,7 @@ let zoomKeyPressed = false;
 let startPlayKeyPressed = false;
 let stopPlayKeyPressed = false;
 
-let audioCtx, masterGain, vowelBaseSound, consonantsBaseSound, voicedConsonantBaseSoundGain, voicedConsonantBaseSoundFilter, customBaseSound, customBaseSoundFile;
+let audioCtx, mainGain, vowelBaseSound, consonantsBaseSound, voicedConsonantBaseSoundGain, voicedConsonantBaseSoundFilter, customBaseSound, customBaseSoundFile;
 
 const formantFilters = [];
 const numberOfFormants = 6;
@@ -57,6 +57,8 @@ const addDropdownWidth = 60;
 const addDropdownOptions = ['hold','glide','gltl. stop','consnt.'];
 const A4 = 440;
 const noteNames = ['A',0,'A#',1,'Bb',1,'B',2,'Cb',2,'B#',3,'C',3,'C#',4,'Db',4,'D',5,'D#',6,'Eb',6,'E',7,'Fb',7,'E#',8,'F',8,'F#',9,'Gb',9,'G',10,'G#',11,'Ab',11];
+
+let glottisTenseness = 0.6;
 
 let selectedFormant = [-1, 0];
 let selectedDraggableTimeBoundary = -1;
@@ -736,9 +738,9 @@ function stopPlaying(pid) {
 
 function reinitContext() {
 	audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-	masterGain = audioCtx.createGain();
-	masterGain.gain.value = baseGain;
-	masterGain.connect(audioCtx.destination);
+	mainGain = audioCtx.createGain();
+	mainGain.gain.value = baseGain;
+	mainGain.connect(audioCtx.destination);
 }
 
 function createBaseSounds() {
@@ -748,7 +750,10 @@ function createBaseSounds() {
 		vowelBaseSound = audioCtx.createMediaElementSource(customBaseSoundFile);
 	} else {
 		vowelBaseSound = audioCtx.createOscillator();
-		vowelBaseSound.type = 'sawtooth';
+		// vowelBaseSound.type = 'sawtooth';
+		const frequencies = discreteFourierTransform(createLFWaveform(glottisTenseness, 500));
+		const customOscillator = audioCtx.createPeriodicWave(frequencies.map((e) => e.re), frequencies.map((e) => e.im));
+		vowelBaseSound.setPeriodicWave(customOscillator);
 		vowelBaseSound.frequency.setValueAtTime(pitchEnvelope[0][0], 0);
 		for (var i = 0; i < pitchEnvelope.length; i++) {
 			vowelBaseSound.frequency.linearRampToValueAtTime(pitchEnvelope[i][0], pitchEnvelope[i][1]<0?0:pitchEnvelope[i][1]);
@@ -769,6 +774,9 @@ function createBaseSounds() {
 		consonantBaseSound.buffer = noiseBuffer;
 		consonantBaseSound.loop = true;
 	}
+
+	// console.log(discreteFourierTransform(createLFWaveform(1, 500)));
+	// console.log(createLFWaveform(1, 500));
 }
 
 function initFilters() {
@@ -788,7 +796,7 @@ function initFilters() {
 		vowelBaseSound.connect(gain);
 		gain.connect(lowpass);
 		lowpass.connect(highpass);
-		highpass.connect(masterGain);
+		highpass.connect(mainGain);
 
 		formantFilters[i] = [lowpass,highpass,gain];
 	}
@@ -808,7 +816,7 @@ function initFilters() {
 		consonantBaseSound.connect(gain);
 		gain.connect(lowpass);
 		lowpass.connect(highpass);
-		highpass.connect(masterGain);
+		highpass.connect(mainGain);
 
 		consonantFilters[i] = [lowpass,highpass,gain];
 	}
@@ -821,7 +829,7 @@ function initFilters() {
 	voicedConsonantBaseSoundGain.gain.setValueAtTime(0, 0);
 	vowelBaseSound.connect(voicedConsonantBaseSoundGain);
 	voicedConsonantBaseSoundGain.connect(voicedConsonantBaseSoundFilter);
-	voicedConsonantBaseSoundFilter.connect(masterGain);
+	voicedConsonantBaseSoundFilter.connect(mainGain);
 }
 
 function setAllFormants() {
@@ -867,6 +875,94 @@ function setFormantFrequenciesAtTime(data) {
 			voicedConsonantBaseSoundGain.gain.setValueAtTime(0, data.time);
 		}
 	}
+}
+
+// stolen from Pink Trombone
+// https://dsuedholt.github.io/files/blog/pink-trombone/glottal-source.html
+function createLFWaveform(tenseness, samples) {
+	loudness = 1;
+
+	var Rd = 3*(1-tenseness);
+	if (Rd<0.5) Rd = 0.5;
+	if (Rd>2.7) Rd = 2.7;
+	// normalized to time = 1, Ee = 1
+	var Ra = -0.01 + 0.048*Rd;
+	var Rk = 0.224 + 0.118*Rd;
+	var Rg = (Rk/4)*(0.5+1.2*Rk)/(0.11*Rd-Ra*(0.5+1.2*Rk));
+
+	var Ta = Ra;
+	var Tp = 1 / (2*Rg);
+	var Te = Tp + Tp*Rk;
+
+	var epsilon = 1/Ta;
+	var shift = Math.exp(-epsilon * (1-Te));
+	var Delta = 1 - shift; // divide by this to scale RHS
+
+	var RHSIntegral = (1/epsilon)*(shift - 1) + (1-Te)*shift;
+	RHSIntegral = RHSIntegral/Delta;
+
+	var totalLowerIntegral = - (Te-Tp)/2 + RHSIntegral;
+	var totalUpperIntegral = -totalLowerIntegral;
+
+	var omega = Math.PI/Tp;
+	var s = Math.sin(omega*Te);
+	var y = -Math.PI*s*totalUpperIntegral / (Tp*2);
+	var z = Math.log(y);
+	var alpha = z/(Tp/2 - Te);
+	var E0 = -1 / (s*Math.exp(alpha*Te));
+	var output = [];
+	for (var i = 0; i < samples; i++) {
+		var t = mapRange(i, 0, samples, 0, Te*2);
+		if (t>Te) output.push(((-Math.exp(-epsilon * (t-Te)) + shift)/Delta) * loudness);
+		else output.push(E0 * Math.exp(alpha*t) * Math.sin(omega * t) * loudness);
+	}
+
+	return output;
+}
+
+const CLOSE_TO_ZERO_THRESHOLD = 1e-10;
+//https://stackoverflow.com/questions/44343806/discrete-fourier-transforms-in-javascript
+function discreteFourierTransform(inputAmplitudes, zeroThreshold = CLOSE_TO_ZERO_THRESHOLD) {
+	const N = inputAmplitudes.length;
+	const signals = [];
+
+	// Go through every discrete frequency.
+	for (let frequency = 0; frequency < N; frequency++) {
+		// Compound signal at current frequency that will ultimately
+		// take part in forming input amplitudes.
+		let frequencySignal = {re:0, im:0};
+
+		// Go through every discrete point in time.
+		for (let timer = 0; timer < N; timer++) {
+			const currentAmplitude = inputAmplitudes[timer];
+
+			// Calculate rotation angle.
+			const rotationAngle = -1 * (2 * Math.PI) * frequency * (timer / N);
+
+			// Remember that e^ix = cos(x) + i * sin(x);
+			const dataPointContribution = complexMultiply(
+				{re: Math.cos(rotationAngle), im: Math.sin(rotationAngle)},
+				{re: currentAmplitude, im: 0});
+
+			// Add this data point's contribution.
+			frequencySignal = complexAdd(frequencySignal, dataPointContribution);
+		}
+
+		// Close to zero? You're zero.
+		if (Math.abs(frequencySignal.re) < zeroThreshold) frequencySignal.re = 0;
+		if (Math.abs(frequencySignal.im) < zeroThreshold) frequencySignal.im = 0;
+
+		// Average contribution at this frequency.
+		// The 1/N factor is usually moved to the reverse transform (going from frequencies
+		// back to time). This is allowed, though it would be nice to have 1/N in the forward
+		// transform since it gives the actual sizes for the time spikes.
+		frequencySignal = complexDivide(frequencySignal, {re:N,im:0});
+
+		// Add current frequency signal to the list of compound signals.
+		signals[frequency] = frequencySignal;
+	}
+
+	return signals;
 }
 
 
@@ -932,6 +1028,19 @@ function pointToLineDistance(x1, y1, x2, y2, x0, y0) {
 
 function pointToPointDistance(x0, y0, x1, y1) {
 	return Math.sqrt(Math.abs(x0-x1)**2 + Math.abs(y0-y1)**2);
+}
+
+function complexMultiply(c1, c2) {
+	return {re: c1.re*c2.re - c1.im*c2.im, im: c1.re*c2.im + c1.im*c2.re};
+}
+
+function complexDivide(c1, c2) {
+	return {re: (c1.re*c2.re + c1.im*c2.im)/(c2.re*c2.re + c2.im*c2.im),
+		im: (c1.im*c2.re + c1.re*c2.im)/(c2.re*c2.re + c2.im*c2.im)};
+}
+
+function complexAdd(c1, c2) {
+	return {re: c1.re + c2.re, im: c1.im + c2.im};
 }
 
 

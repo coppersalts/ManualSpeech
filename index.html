@@ -19,6 +19,9 @@
 			padding: 2px;
 			border: 1px solid darkgrey;
 		}
+		a:visited {
+			color: #0b0080;
+		}
 
 		/* I stole most of this from MDN */
 		details {
@@ -57,22 +60,27 @@
 			margin-bottom: 20px;
 			margin-left: 5px;
 		}
+
+		#keys-table td:last-child:before {
+			content: '\2013';
+			margin-right: 5px;
+		}
 	</style>
 </head>
 <body>
 	<h1>ManualSpeech</h1>
-	<p>v0.2.0 (<a href="changelog.html">changelog</a>)</p>
+	<p>v0.3.0 (<a href="changelog.html">changelog</a>)</p>
 	<canvas id=main-canvas width=640 height=400></canvas>
 	<input style="display: none;" type="file" id="upload" title="Upload File" />
 	<details>
 		<summary>Controls</summary>
 		<p>These are some essential controls which may not be obvious to a first time user (in addition to some which may be obvious).</p>
-		<table>
+		<table id=keys-table>
 			<tbody>
-			<tr><td><code>-</code>, <code>=</code></td><td>&ndash; zoom horizontally<td></tr>
-			<tr><td><code>_</code>, <code>+</code></td><td>&ndash; zoom vertically (warning: kinda broken)<td></tr>
-			<tr><td><code>Space</code></td><td>&ndash; play/stop<td></tr>
-			<tr><td><code>d</code></td><td>&ndash; print whatever debug info I left in a console log<td></tr>
+			<tr><td><code>-</code>, <code>=</code></td><td>zoom horizontally</td></tr>
+			<tr><td><code>_</code>, <code>+</code></td><td>zoom vertically (warning: kinda broken)</td></tr>
+			<tr><td><code>Space</code></td><td>play/stop</td></tr>
+			<tr><td><code>d</code></td><td>print whatever debug info I left in a console log</td></tr>
 			</tbody>
 		</table>
 		<p>
